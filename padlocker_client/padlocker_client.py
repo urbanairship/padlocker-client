@@ -45,15 +45,15 @@ def usage():
 
 def deboog(msg):
     if msg == "":
-        print u"\u250F\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2513"
+        print u"\u250F\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2513".encode('utf8')
         return
 
     first = u"\u2503"
     start = u"\u2523"
     depth = (len(traceback.extract_stack()) - 3) * u"\u2501\u2501"
     end = u"\u257E"
-    sys.stdout.write("\r%s % 5s %s%s%s %s\n" % (first, os.getpid(), start, depth, end, msg))
-    sys.stdout.write(u"\u2517\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u251B")
+    sys.stdout.write((u"\r%s % 5s %s%s%s %s\n" % (first, os.getpid(), start, depth, end, msg)).encode('utf8'))
+    sys.stdout.write(u"\u2517\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u251B".encode('utf8'))
     sys.stdout.flush()
 
 def padlocker_post(url, data):
