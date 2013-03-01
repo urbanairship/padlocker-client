@@ -5,7 +5,7 @@ libraries = [l.strip() for l in open('requirements.txt').readlines()]
 
 # To set __version__
 __version__ = 'unknown'
-execfile('padlocker-client/_version.py')
+execfile('padlocker_client/_version.py')
 
 setup(
     name = "padlocker-client",
@@ -13,7 +13,7 @@ setup(
     packages = find_packages(),
     entry_points = {
         "console_scripts": [
-            "padlocker-client = padlocker-client.padlocker-client:main",
+            "padlocker-client = padlocker_client.padlocker_client:main",
         ],
     },
     author = "Urban Airship",
