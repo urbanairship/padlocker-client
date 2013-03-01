@@ -19,7 +19,7 @@ debug = False
 try:
     opts,args = getopt.getopt(sys.argv[1:], "hcd", ["help", "config=", "debug"])
 except getopt.GetoptError as err:
-    print str(err)
+    sys.stderr.write("%s\n" % (str(err), ))
     usage()
     sys.exit(2)
 for o, a in opts:
@@ -44,6 +44,8 @@ def usage():
     print "usage: %s [--config=file.json] [--debug] [--help]" % os.path.basename(sys.argv[0])
 
 def deboog(msg):
+    if not debug:
+        return
     if msg == "":
         print u"\u250F\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2513".encode('utf8')
         return
@@ -59,8 +61,7 @@ def deboog(msg):
 def padlocker_post(url, data):
     """make a post request to the api_url with all relevant information"""
     full_url = "%s/%s" %(config["api_url"], url)
-    if debug:
-        deboog("POSTing %s to %s" % (json.dumps(data), full_url))
+    deboog("POSTing %s to %s" % (json.dumps(data), full_url))
     try:
         headers, resp = client.request(
             full_url,
@@ -75,8 +76,7 @@ def padlocker_post(url, data):
         deboog("%s gave error %s" % (full_url, msg))
         return ""
     if headers.status == 200:
-        if debug:
-            deboog("Got HTTP %s" % (headers.status))
+        deboog("Got HTTP %s" % (headers.status))
         return resp
     else:
         deboog("%s gave error %s\n" % (full_url, headers.status))
@@ -95,8 +95,7 @@ def checkfifo(path):
             sys.exit(1)
         else:
             try:
-                if debug:
-                    deboog("making fifo at %s" % (path, ))
+                deboog("making fifo at %s" % (path, ))
                 os.mkfifo(path)
             except OSError, e:
                 sys.stderr.write("can't create %s as a fifo: %s\n" % (path, e))
@@ -118,29 +117,24 @@ def childmain(cn):
     """
     lconfig = config["keys"][cn]
 
-    if debug: 
-        deboog("%s: %s" % (cn, lconfig))
+    deboog("%s: %s" % (cn, lconfig))
 
     checkfifo(lconfig["path"])
 
     while 1:
-        if debug:
-            deboog("%s: waiting for %s" % (cn, lconfig["path"],))
+        deboog("%s: waiting for %s" % (cn, lconfig["path"],))
 
         fd = os.open(lconfig["path"], os.O_ASYNC | os.O_WRONLY)
 
-        if debug:
-            deboog("%s: %s just went writeable" % (cn, lconfig["path"],))
+        deboog("%s: %s just went writeable" % (cn, lconfig["path"],))
 
         key = padlocker_post('', {cn: lconfig})
 
         if key != '':
-            if debug:
-                deboog("%s: feeding key to fifo" % (cn, ))
+            deboog("%s: feeding key to fifo" % (cn, ))
             os.write(fd, key)
 
-        if debug:
-            deboog("%s: closing fifo" % (cn, ))
+        deboog("%s: closing fifo" % (cn, ))
 
         os.close(fd)
         time.sleep(1)
@@ -150,8 +144,7 @@ def childmain(cn):
 
 def main():
 
-    if debug:
-        deboog("")
+    deboog("")
 
     # start a child for each config
     children = []
@@ -159,15 +152,13 @@ def main():
         child = os.fork()
         if child:
             children.append(child)
-            if debug:
-                deboog("%s watcher forked as %s" % (cn, child))
+            deboog("%s watcher forked as %s" % (cn, child))
         else:
             childmain(cn)
             sys.exit(0)
     for child in children:
         os.waitpid(child, 0)
-    if debug:
-        deboog("all children died, exiting")
+    deboog("all children died, exiting")
 
 if __name__ == '__main__':
     main()
