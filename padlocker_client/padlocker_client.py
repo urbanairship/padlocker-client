@@ -2,6 +2,7 @@
 
 import httplib2
 import getopt
+import stat
 import json
 import time
 import sys
@@ -41,7 +42,8 @@ def usage():
     print "usage: %s [--config=file.json] [--debug] [--help]" % os.path.basename(sys.argv[0])
 
 def padlocker_post(url, data):
-    full_url = "%s/%s" %(API_URL, url)
+    """make a post request to the api_url with all relevant information"""
+    full_url = "%s/%s" %(config["api_url"], url)
     try:
         headers, resp = client.request(
             full_url,
@@ -59,23 +61,57 @@ def padlocker_post(url, data):
         sys.stderr.write("output: %s\n" % resp)
         return(resp, headers.status)
 
-def childmain(cn, child_config):
-    print "    child: %s: %s" % (cn, child_config)
-    time.sleep(10)
+def checkfifo(path):
+    """
+    safely check/create the fifo
+    """
+
+    try:
+        if not stat.S_ISFIFO(os.stat(path).st_mode):
+            if os.path.isfile(path):
+                sys.stderr.write("can't create %s as a fifo: %s\n" % (path, e))
+                sys.exit(1)
+        else:
+                os.mkfifo(path)
+    except OSError, e:
+        sys.stderr.write("can't create %s as a fifo: %s\n" % (path, e))
+        sys.exit(1)
+
+    return 1
+
+def childmain(cn):
+    """
+    run a child
+
+    tasks::
+
+    - try to make a fifo at child_config["path"] if it isn't already one
+    - detect read attempts on the fifo
+
+      - collect information about the surrounding environment
+      - make requests to the api_url with all known info
+    """
+    lconfig = config["keys"][cn]
+
+    if debug: 
+        print "    child: %s: %s" % (cn, lconfig)
+
+    checkfifo(lconfig["path"])
+    
     sys.exit(0)
 
 
 def main():
     # start a child for each config
     children = []
-    for cn in config:
+    for cn in config["keys"]:
         if debug:
             print "forking child for %s" % cn
         child = os.fork()
         if child:
             children.append(child)
         else:
-            childmain(cn, config[cn])
+            childmain(cn)
             sys.exit(0)
     for child in children:
         os.waitpid(child, 0)

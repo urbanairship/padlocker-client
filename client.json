@@ -1,10 +1,13 @@
 {
-  "a-server.example.com": {
-    "path": "/etc/certs/a-server.example.com",
-    "service": "a-server"
-  },
-  "b-server.example.com": {
-    "path": "/etc/certs/b-server.example.com",
-    "service": "b-server"
+  "api_url": "https://example.com/api",
+  "keys": {
+    "a-server.example.com": {
+      "path": "/etc/certs/a-server.example.com",
+      "service": "a-server"
+    },
+    "b-server.example.com": {
+      "path": "/etc/certs/b-server.example.com",
+      "service": "b-server"
+    }
   }
 }
