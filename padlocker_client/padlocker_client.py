@@ -1,5 +1,12 @@
 #!/usr/bin/env python
 
+import httplib2
+import getopt
+import json
+import sys
+import os
+import re
+
 DEFAULTS = {}
 
 configf = './client.json'
