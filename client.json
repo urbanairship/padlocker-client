@@ -1,12 +1,12 @@
 {
-  "api_url": "https://example.com/api",
+  "api_url": "http://localhost:5000",
   "keys": {
     "a-server.example.com": {
-      "path": "/etc/certs/a-server.example.com",
+      "path": "./a-server.example.com.key",
       "service": "a-server"
     },
     "b-server.example.com": {
-      "path": "/etc/certs/b-server.example.com",
+      "path": "./b-server.example.com.key",
       "service": "b-server"
     }
   }
