@@ -66,7 +66,8 @@ def padlocker_post(url, data):
     full_url = "%s/%s" %(config["api_url"], url)
 
     while 1:
-        deboog("POSTing %s to %s" % (json.dumps(data), full_url))
+        #deboog("POSTing %s to %s" % (json.dumps(data), full_url))
+        deboog("POSTing to %s" % full_url)
         try:
             headers, resp = client.request(
                 full_url,
