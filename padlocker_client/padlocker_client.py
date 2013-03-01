@@ -3,6 +3,7 @@
 import httplib2
 import getopt
 import json
+import time
 import sys
 import os
 import re
@@ -58,8 +59,28 @@ def padlocker_post(url, data):
         sys.stderr.write("output: %s\n" % resp)
         return(resp, headers.status)
 
+def childmain(cn, child_config):
+    print "    child: %s: %s" % (cn, child_config)
+    time.sleep(10)
+    sys.exit(0)
+
+
 def main():
-    print "nope"
+    # start a child for each config
+    children = []
+    for cn in config:
+        if debug:
+            print "forking child for %s" % cn
+        child = os.fork()
+        if child:
+            children.append(child)
+        else:
+            childmain(cn, config[cn])
+            sys.exit(0)
+    for child in children:
+        os.waitpid(child, 0)
+    if debug:
+        print "all children died, exiting"
 
 if __name__ == '__main__':
     main()

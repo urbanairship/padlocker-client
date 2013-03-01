@@ -3,7 +3,7 @@
     "path": "/etc/certs/a-server.example.com",
     "service": "a-server"
   },
-  "b-server": {
+  "b-server.example.com": {
     "path": "/etc/certs/b-server.example.com",
     "service": "b-server"
   }
