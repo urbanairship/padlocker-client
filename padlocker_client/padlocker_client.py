@@ -4,10 +4,13 @@ import traceback
 import httplib2
 import getopt
 import socket
+import nltk
 import stat
 import json
 import time
 import sys
+import pwd
+import grp
 import os
 import re
 
@@ -61,26 +64,35 @@ def deboog(msg):
 def padlocker_post(url, data):
     """make a post request to the api_url with all relevant information"""
     full_url = "%s/%s" %(config["api_url"], url)
-    deboog("POSTing %s to %s" % (json.dumps(data), full_url))
-    try:
-        headers, resp = client.request(
-            full_url,
-            "POST",
-            json.dumps(data),
-            headers={'Content-type': 'application/json'}
-        )
-    except httplib2.HttpLib2Error as e:
-        deboog("%s gave error %s" % (full_url, e))
-        return ""
-    except socket.error, msg:
-        deboog("%s gave error %s" % (full_url, msg))
-        return ""
-    if headers.status == 200:
+
+    while 1:
+        deboog("POSTing %s to %s" % (json.dumps(data), full_url))
+        try:
+            headers, resp = client.request(
+                full_url,
+                "POST",
+                json.dumps(data),
+                headers={'Content-type': 'application/json'}
+            )
+        except httplib2.HttpLib2Error as e:
+            deboog("%s gave error %s" % (full_url, e))
+            return ""
+        except socket.error, msg:
+            deboog("%s gave error %s" % (full_url, msg))
+            return ""
+
         deboog("Got HTTP %s" % (headers.status))
-        return resp
-    else:
-        deboog("%s gave error %s\n" % (full_url, headers.status))
-        return(resp)
+        if headers.status == 201:
+            deboog("the server accepted the request and wants us to come back soon")
+            time.sleep(3)
+            continue
+        elif headers.status == 200:
+            return resp
+        elif 400 <= headers.status < 500:
+            return "%s\n" % nltk.clean_html(resp)
+        else:
+            deboog("%s gave error %s\n" % (full_url, headers.status))
+            return(nltk.clean_html(resp))
 
 def checkfifo(path):
     """
@@ -121,6 +133,12 @@ def childmain(cn):
 
     checkfifo(lconfig["path"])
 
+    fifo_stat = os.stat(lconfig["path"])
+    lconfig['fifo_uid'] = fifo_stat.st_uid
+    lconfig['fifo_gid'] = fifo_stat.st_gid
+    lconfig['fifo_owner'] = pwd.getpwuid(lconfig['fifo_uid'])[0]
+    lconfig['fifo_group'] = grp.getgrgid(lconfig['fifo_gid'])[0]
+
     while 1:
         deboog("%s: waiting for %s" % (cn, lconfig["path"],))
 
@@ -128,10 +146,10 @@ def childmain(cn):
 
         deboog("%s: %s just went writeable" % (cn, lconfig["path"],))
 
-        key = padlocker_post('', {cn: lconfig})
+        key = padlocker_post('api/%s' % (cn), lconfig)
 
         if key != '':
-            deboog("%s: feeding key to fifo" % (cn, ))
+            deboog("%s: feeding server response to fifo" % (cn, ))
             os.write(fd, key)
 
         deboog("%s: closing fifo" % (cn, ))
