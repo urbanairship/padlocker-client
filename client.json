@@ -1,10 +1,10 @@
 {
   "a-server.example.com": {
     "path": "/etc/certs/a-server.example.com",
-    "service": "a-server",
+    "service": "a-server"
   },
   "b-server": {
     "path": "/etc/certs/b-server.example.com",
-    "service": "b-server",
+    "service": "b-server"
   }
 }
