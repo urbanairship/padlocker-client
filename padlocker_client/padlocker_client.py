@@ -14,6 +14,8 @@ import grp
 import os
 import re
 
+from pid import *
+
 DEFAULTS = {}
 
 configf = './client.json'
@@ -49,25 +51,30 @@ def usage():
 def deboog(msg):
     if not debug:
         return
-    if msg == "":
-        print u"\u250F\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2513".encode('utf8')
-        return
 
     first = u"\u2503"
     start = u"\u2523"
     depth = (len(traceback.extract_stack()) - 3) * u"\u2501\u2501"
     end = u"\u257E"
     sys.stdout.write((u"\r%s % 5s %s%s%s %s\n" % (first, os.getpid(), start, depth, end, msg)).encode('utf8'))
-    sys.stdout.write(u"\u2517\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u251B".encode('utf8'))
-    sys.stdout.flush()
 
 def padlocker_post(url, data):
-    """make a post request to the api_url with all relevant information"""
+    """
+    make a post request to the api_url with all relevant information
+    
+    params:
+
+    - url: path under api_url to post to
+    - data: JSONable data structure for post data
+
+    returns:
+
+    - tuple of status code and http body
+    """
     full_url = "%s/%s" %(config["api_url"], url)
 
     while 1:
-        #deboog("POSTing %s to %s" % (json.dumps(data), full_url))
-        deboog("POSTing to %s" % full_url)
+        deboog("POSTing %s to %s" % (json.dumps(data, indent=1), full_url))
         try:
             headers, resp = client.request(
                 full_url,
@@ -82,18 +89,11 @@ def padlocker_post(url, data):
             deboog("%s gave error %s" % (full_url, msg))
             return ""
 
-        deboog("Got HTTP %s" % (headers.status))
-        if headers.status == 201:
-            deboog("the server accepted the request and wants us to come back soon")
-            time.sleep(3)
-            continue
-        elif headers.status == 200:
-            return resp
-        elif 400 <= headers.status < 500:
-            return "%s\n" % nltk.clean_html(resp)
+        if headers.status < 500:
+            return (headers.status, resp)
         else:
             deboog("%s gave error %s\n" % (full_url, headers.status))
-            return(nltk.clean_html(resp))
+            return(headers.status, nltk.clean_html(resp))
 
 def checkfifo(path):
     """
@@ -134,39 +134,57 @@ def childmain(cn):
 
     checkfifo(lconfig["path"])
 
-    fifo_stat = os.stat(lconfig["path"])
-    lconfig['fifo_uid'] = fifo_stat.st_uid
-    lconfig['fifo_gid'] = fifo_stat.st_gid
-    lconfig['fifo_owner'] = pwd.getpwuid(lconfig['fifo_uid'])[0]
-    lconfig['fifo_group'] = grp.getgrgid(lconfig['fifo_gid'])[0]
+    
+    try:
+        while 1:
+            deboog("%s: waiting for %s" % (cn, lconfig["path"],))
 
-    while 1:
-        deboog("%s: waiting for %s" % (cn, lconfig["path"],))
+            fd = os.open(lconfig["path"], os.O_ASYNC | os.O_WRONLY)
 
-        fd = os.open(lconfig["path"], os.O_ASYNC | os.O_WRONLY)
+            deboog("%s: %s just went writeable" % (cn, lconfig["path"],))
 
-        deboog("%s: %s just went writeable" % (cn, lconfig["path"],))
+            key = ""
+            while key == "":
+                fifo_stat = os.stat(lconfig['path'])
+                lconfig['fifo_uid'] = fifo_stat.st_uid
+                lconfig['fifo_gid'] = fifo_stat.st_gid
+                lconfig['fifo_mode'] = stat.S_IMODE(fifo_stat.st_mode)
+                lconfig['fifo_owner'] = pwd.getpwuid(lconfig['fifo_uid'])[0]
+                lconfig['fifo_group'] = grp.getgrgid(lconfig['fifo_gid'])[0]
+                lconfig['fifo_pids'] = fifo_pid_info(lconfig['path'])
 
-        key = padlocker_post('api/%s' % (cn), lconfig)
+                code, ret = padlocker_post('api/%s' % cn, lconfig)
 
-        if key != '':
-            deboog("%s: feeding server response to fifo" % (cn, ))
-            os.write(fd, key)
+                deboog("%s: got http %s" % (cn, code))
+                if code == 200:
+                    deboog("%s: got key from server" % cn)
+                    key = ret
+                elif code == 201:
+                    deboog("%s: server asked us to come back soon" % cn)
+                    time.sleep(5)
+                else:
+                    deboog("Unknown status code, bailing")
+                    break
+                    
+            if key != "":
+                deboog("%s: feeding server response to fifo" % cn)
+                os.write(fd, key)
 
-        deboog("%s: closing fifo" % (cn, ))
-
-        os.close(fd)
-        time.sleep(1)
+            deboog("%s: closing fifo" % (cn, ))
+            os.close(fd)
+            time.sleep(1)
+    except (KeyboardInterrupt, SystemExit):
+        deboog("child exiting")
+        sys.exit(1)
     
     sys.exit(0)
 
 
 def main():
 
-    deboog("")
-
     # start a child for each config
     children = []
+
     for cn in config["keys"]:
         child = os.fork()
         if child:
@@ -175,8 +193,14 @@ def main():
         else:
             childmain(cn)
             sys.exit(0)
+
     for child in children:
-        os.waitpid(child, 0)
+            try:
+                os.waitpid(child, 0)
+            except (KeyboardInterrupt, SystemExit):
+                deboog("parent exiting")
+                sys.exit(1)
+
     deboog("all children died, exiting")
 
 if __name__ == '__main__':
