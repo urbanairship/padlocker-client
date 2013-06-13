@@ -54,9 +54,11 @@ def deboog(msg):
 
     first = u"\u2503"
     start = u"\u2523"
-    depth = (len(traceback.extract_stack()) - 3) * u"\u2501\u2501"
+    depth = (len(traceback.extract_stack()) - 3)
+    indent = depth * u"\u2501\u2501"
     end = u"\u257E"
-    sys.stdout.write((u"\r%s % 5s %s%s%s %s\n" % (first, os.getpid(), start, depth, end, msg)).encode('utf8'))
+    lmsg = re.sub(r"\n", "\n" + (" " * (13+depth)), msg)
+    sys.stdout.write((u"%s % 5s %s%s%s %s\n" % (first, os.getpid(), start, indent, end, lmsg)).encode('utf8'))
 
 def padlocker_post(url, data):
     """
@@ -134,7 +136,6 @@ def childmain(cn):
 
     checkfifo(lconfig["path"])
 
-    
     try:
         while 1:
             deboog("%s: waiting for %s" % (cn, lconfig["path"],))
@@ -162,8 +163,11 @@ def childmain(cn):
                 elif code == 201:
                     deboog("%s: server asked us to come back soon" % cn)
                     time.sleep(5)
+                elif 400 <= code < 500:
+                    deboog("%s: server denied request for key" % cn)
+                    key = "padlocker: server denied request for key %s\n" % cn
                 else:
-                    deboog("Unknown status code, bailing")
+                    deboog("unknown status code, bailing")
                     break
                     
             if key != "":
